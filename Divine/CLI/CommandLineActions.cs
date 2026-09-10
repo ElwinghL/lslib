@@ -80,11 +80,17 @@ internal class CommandLineActions
                 }
             }
 
-            InputFormat = CommandLineArguments.GetResourceFormatByString(args.InputFormat);
-            CommandLineLogger.LogDebug($"Using input format: {InputFormat}");
-
             if (args.Action != "extract-packages")
             {
+                // "extract-packages" (BatchExtract) filtre les fichiers sources par
+                // extension brute (Args.InputFormat, ex: "pak") sans jamais passer par
+                // l'enum ResourceFormat, qui ne connaît que les formats de conversion de
+                // ressources (LSX/LSB/LSF/LSJ) — "pak" n'y figure pas et n'a donc jamais
+                // pu être résolu ici, provoquant une ArgumentException non gérée (donc un
+                // crash CLR complet) dès qu'on tentait un extract-packages sur des .pak.
+                InputFormat = CommandLineArguments.GetResourceFormatByString(args.InputFormat);
+                CommandLineLogger.LogDebug($"Using input format: {InputFormat}");
+
                 OutputFormat = CommandLineArguments.GetResourceFormatByString(args.OutputFormat);
                 CommandLineLogger.LogDebug($"Using output format: {OutputFormat}");
             }
