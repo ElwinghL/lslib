@@ -22,8 +22,47 @@
     <PlatformTarget>x86</PlatformTarget>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
+  <!--
+    BG3Tools fork scope reduction (fix/LSLibForkBuildLinux): this fork only
+    needs to read/write/edit .pak archives (and the LSB/LSF/LSJ/LSX resources
+    they contain) — see README "About this fork". Everything below trims the
+    project to what Divine's pak/resource/loca commands actually use, so the
+    whole solution can build on Linux/.NET 8 without MSVC or the Windows-only
+    GPLex/GPPG toolchain.
+  -->
   <ItemGroup>
-    <ProjectReference Include="..\LSLibNative\LSLibNative.vcxproj" />
+    <!--
+      LSLibNative is the native C++ GR2/Granny reader (LSLibNative.vcxproj).
+      It requires MSVC and is only consumed by LSLib's Granny/GR2 mesh code
+      below, which is also excluded — so the reference itself is dropped.
+    -->
+  </ItemGroup>
+  <ItemGroup>
+    <!--
+      Excluded from compilation (out of scope for a .pak-only build):
+        - Granny/**            GR2 mesh/animation import-export. Needs the
+                                native LSLibNative library (MSVC-only), and
+                                nothing in the pak read/write/resource-convert
+                                path depends on it.
+        - VirtualTextures/**    BG3 virtual texture (.gts/.gtp) tileset
+                                 building, unrelated to .pak handling.
+        - LS/Story/**           Osiris story/goal database compiler+parser.
+                                 Needs Windows-only GPLex 1.2.2 / GPPG 1.5.2
+                                 to generate Goal.lex.cs/Goal.yy.cs/
+                                 StoryHeader.lex.cs/StoryHeader.yy.cs at build
+                                 time (see the removed PreBuildEvent below);
+                                 those generators have no Linux build.
+        - LS/Save/**            Savegame (.lsv) helpers, a distinct container
+                                 format from mod .pak archives and outside the
+                                 "read/write/edit .pak" goal.
+      Kept: LS/Resources (LSB/LSF/LSJ/LSX conversion), LS/Stats, LS/Mods,
+      LS/Enums, and the top-level LS/*.cs (VFS, PackageReader/Writer,
+      Compression, Localization, ...) that implement .pak I/O itself.
+    -->
+    <Compile Remove="Granny\**\*.cs" />
+    <Compile Remove="VirtualTextures\**\*.cs" />
+    <Compile Remove="LS\Story\**\*.cs" />
+    <Compile Remove="LS\Save\**\*.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="BCnEncoder.Net" Version="2.3.0" />
@@ -40,13 +79,11 @@
   </ItemGroup>
   <PropertyGroup />
   <PropertyGroup>
-    <PreBuildEvent>"$(SolutionDir)\external\gppg\binaries\GpLex" /out:"$(MSBuildProjectDirectory)\LS\Story\GoalParser\Goal.lex.cs" "$(MSBuildProjectDirectory)\LS\Story\GoalParser\Goal.lex"
-"$(SolutionDir)\external\gppg\binaries\Gppg" /out:"$(MSBuildProjectDirectory)\LS\Story\GoalParser\Goal.yy.cs" "$(MSBuildProjectDirectory)\LS\Story\GoalParser\Goal.yy"
-
-"$(SolutionDir)\external\gppg\binaries\GpLex" /out:"$(MSBuildProjectDirectory)\LS\Story\HeaderParser\StoryHeader.lex.cs" "$(MSBuildProjectDirectory)\LS\Story\HeaderParser\StoryHeader.lex"
-"$(SolutionDir)\external\gppg\binaries\Gppg" /out:"$(MSBuildProjectDirectory)\LS\Story\HeaderParser\StoryHeader.yy.cs" "$(MSBuildProjectDirectory)\LS\Story\HeaderParser\StoryHeader.yy"
-
-</PreBuildEvent>
+    <!--
+      Upstream's PreBuildEvent ran GpLex/Gppg (Windows-only) here to generate
+      the Osiris Story/Goal parser sources. Removed along with LS/Story/**
+      above — see the Compile Remove comment for why.
+    -->
     <AssemblyTitle>LSLib</AssemblyTitle>
     <Product>LSLib</Product>
     <Copyright>Copyright © Norbyte 2012-2023</Copyright>

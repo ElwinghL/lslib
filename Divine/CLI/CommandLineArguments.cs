@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using CommandLineParser.Arguments;
-using LSLib.Granny.Model;
 using LSLib.LS;
 using LSLib.LS.Enums;
 
@@ -59,10 +56,14 @@ public class CommandLineArguments
     public string PackagedPath;
 
     // @formatter:off
+    // BG3Tools fork (fix/LSLibForkBuildLinux): dropped "dae;glb;gltf;gr2" (3D
+    // model formats, convert-model[s] only) and "lsv" (savegames) from the
+    // allowed values below — both are out of scope for a .pak-only fork and
+    // their backing code (Granny/GR2, LS/Save) is excluded from LSLib.csproj.
     [EnumeratedValueArgument(typeof(string), 'i', "input-format",
         Description = "Set input format for batch operations",
         DefaultValue = null,
-        AllowedValues = "dae;glb;gltf;gr2;lsv;pak;lsj;lsx;lsb;lsf",
+        AllowedValues = "pak;lsj;lsx;lsb;lsf",
         ValueOptional = false,
         Optional = true
     )]
@@ -72,17 +73,20 @@ public class CommandLineArguments
     [EnumeratedValueArgument(typeof(string), 'o', "output-format",
         Description = "Set output format for batch operations",
         DefaultValue = null,
-        AllowedValues = "dae;glb;gltf;gr2;lsv;pak;lsj;lsx;lsb;lsf",
+        AllowedValues = "pak;lsj;lsx;lsb;lsf",
         ValueOptional = false,
         Optional = true
     )]
     public string OutputFormat;
 
-    // @formatter:off
+    // BG3Tools fork (fix/LSLibForkBuildLinux): dropped "convert-model",
+    // "convert-models" (GR2 mesh/animation conversion — needs the native,
+    // MSVC-only LSLibNative) and "build-vt" (virtual texture tileset
+    // building — unrelated to .pak handling) from the allowed actions.
     [EnumeratedValueArgument(typeof(string), 'a', "action",
         Description = "Set action to execute",
         DefaultValue = "extract-package",
-        AllowedValues = "create-package;list-package;extract-single-file;extract-package;extract-packages;convert-model;convert-models;convert-resource;convert-resources;convert-loca;build-vt",
+        AllowedValues = "create-package;list-package;extract-single-file;extract-package;extract-packages;convert-resource;convert-resources;convert-loca",
         ValueOptional = false,
         Optional = false
     )]
@@ -98,16 +102,6 @@ public class CommandLineArguments
     )]
     public string PakCompressionMethod;
 
-    // @formatter:off
-    [EnumeratedValueArgument(typeof(string), 'e', "gr2-options",
-        Description = "Set extra options for GR2/DAE conversion",
-        AllowMultiple = true,
-        AllowedValues = "export-normals;export-tangents;export-uvs;export-colors;deduplicate-vertices;deduplicate-uvs;recalculate-normals;recalculate-tangents;recalculate-iwt;flip-uvs;ignore-uv-nan;disable-qtangents;y-up-skeletons;force-legacy-version;compact-tris;build-dummy-skeleton;apply-basis-transforms;mirror-skeletons;x-flip-meshes;conform;conform-copy",
-        ValueOptional = false,
-        Optional = true
-    )]
-    public string[] Options;
-
 		// @formatter:off
 		[ValueArgument(typeof(string), 'x', "expression",
         Description = "Set glob expression for extract and list actions",
@@ -117,14 +111,11 @@ public class CommandLineArguments
     )]
     public string Expression;
 
-    // @formatter:off
-    [ValueArgument(typeof(string), "conform-path",
-        Description = "Set conform to original path",
-        DefaultValue = null,
-        ValueOptional = false,
-        Optional = true
-    )]
-    public string ConformPath;
+    // BG3Tools fork (fix/LSLibForkBuildLinux): "gr2-options" (-e), "conform-path",
+    // "fast-build", "vt-validate" and "vt-root" arguments removed below — they only
+    // configured the now-removed convert-model[s]/build-vt actions (GR2 mesh
+    // conversion and virtual-texture tileset building), out of scope for this
+    // .pak-only fork. See CommandLineActions.cs and CommandLineDataProcessor.cs.
 
     // @formatter:off
     [ValueArgument(typeof(int), "package-priority",
@@ -143,20 +134,6 @@ public class CommandLineArguments
     public bool LegacyGuids;
 
     // @formatter:off
-    [SwitchArgument("fast-build", false,
-        Description = "Faster VT build, but lower compression ratio",
-        Optional = true
-    )]
-    public bool FastBuild;
-
-    // @formatter:off
-    [SwitchArgument("vt-validate", false,
-        Description = "Validate generated VT files",
-        Optional = true
-    )]
-    public bool VTValidate;
-
-    // @formatter:off
     [SwitchArgument("use-package-name", false,
         Description = "Use package name for destination folder",
         Optional = true
@@ -169,15 +146,6 @@ public class CommandLineArguments
         Optional = true
     )]
     public bool UseRegex;
-
-    // @formatter:off
-    [ValueArgument(typeof(string), "vt-root",
-        Description = "Tileset build mod root path",
-        DefaultValue = null,
-        ValueOptional = false,
-        Optional = true
-    )]
-    public string VTRoot;
 
     // @formatter:on
     public static LogLevel GetLogLevelByString(string logLevel)
@@ -348,45 +316,8 @@ public class CommandLineArguments
         return compressionOptions;
     }
 
-    public static Dictionary<string, bool> GetGR2Options(string[] options)
-    {
-        var results = new Dictionary<string, bool>
-        {
-            { "deduplicate-vertices", true },
-            { "flip-uvs", true },
-            { "ignore-uv-nan", true },
-            { "disable-qtangents", false },
-            { "y-up-skeletons", true },
-            { "force-legacy-version", false },
-            { "compact-tris", true },
-            { "build-dummy-skeleton", true },
-            { "apply-basis-transforms", true },
-            { "mirror-skeletons", false },
-            { "x-flip-meshes", false },
-            { "conform", false },
-            { "conform-copy", false },
-            
-            // Deprecated options, no longer in use
-            { "export-normals", true },
-            { "export-tangents", true },
-            { "export-uvs", true },
-            { "export-colors", true },
-            { "recalculate-normals", false },
-            { "recalculate-tangents", false },
-            { "recalculate-iwt", false },
-            { "deduplicate-uvs", true }
-        };
-
-        if (options == null)
-        {
-            return results;
-        }
-
-        foreach (string option in options.Where(option => results.Keys.Contains(option)))
-        {
-            results[option] = true;
-        }
-
-        return results;
-    }
+    // GetGR2Options() removed (BG3Tools fork, fix/LSLibForkBuildLinux): only used to
+    // configure the removed convert-model[s] action's GR2 mesh conversion. See the
+    // removed "gr2-options" argument above and CommandLineGR2Processor.cs (excluded
+    // from Divine.csproj).
 }

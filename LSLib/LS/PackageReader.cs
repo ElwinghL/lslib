@@ -1,4 +1,5 @@
-﻿using LSLib.LS.Enums;
+﻿using K4os.Compression.LZ4.Streams;
+using LSLib.LS.Enums;
 using System.IO.MemoryMappedFiles;
 
 namespace LSLib.LS;
@@ -210,7 +211,22 @@ public class PackageReader
         byte[] frame = new byte[lastOffset - Pak.Metadata.DataOffset];
         view.ReadArray(Pak.Metadata.DataOffset, frame, 0, (int)(lastOffset - Pak.Metadata.DataOffset));
 
-        byte[] decompressed = Native.LZ4FrameCompressor.Decompress(frame);
+        // BG3Tools fork (fix/LSLibForkBuildLinux): upstream used the native, MSVC-only
+        // LSLibNative.Native.LZ4FrameCompressor.Decompress() (LSLibNative/lz4wrapper.cpp,
+        // a thin C++/CLI wrapper around lz4frame.h) here. Replaced with the managed LZ4
+        // frame decoder from the K4os.Compression.LZ4.Streams package (already a
+        // dependency, and already used the same way for chunked LZ4 in Compression.cs)
+        // so solid-archive .pak reading doesn't need LSLibNative.
+        byte[] decompressed;
+        using (var compressedStream = new MemoryStream(frame))
+        using (var decompressedStream2 = new MemoryStream())
+        {
+            using (var decompressor = LZ4Stream.Decode(compressedStream))
+            {
+                decompressor.CopyTo(decompressedStream2);
+            }
+            decompressed = decompressedStream2.ToArray();
+        }
         var decompressedStream = new MemoryStream(decompressed);
 
         // Update offsets to point to the decompressed chunk

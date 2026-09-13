@@ -1,4 +1,9 @@
-﻿using LSLib.LS.Story.Compiler;
+﻿// BG3Tools fork (fix/LSLibForkBuildLinux): `using LSLib.LS.Story.Compiler;` replaced by
+// `using LSLib.LS.Enums;` below — this file only used that namespace for the
+// `TargetGame` enum (DOS2/DOS2DE/BG3), and LS/Story/** is excluded from the build (see
+// LSLib.csproj). Switched to the equivalent, already-present `LSLib.LS.Enums.Game`
+// enum instead (DivinityOriginalSin2/BaldursGate3 etc.) — see the Game field/param below.
+using LSLib.LS.Enums;
 using System.Text.RegularExpressions;
 
 namespace LSLib.LS;
@@ -52,7 +57,8 @@ public partial class ModPathVisitor
     public bool CollectGlobals = false;
     public bool CollectLevels = false;
     public bool CollectGuidResources = false;
-    public TargetGame Game = TargetGame.DOS2;
+    // Fully qualified to avoid ambiguity between the "Game" field and the "Game" enum type.
+    public Game Game = LSLib.LS.Enums.Game.DivinityOriginalSin2;
     public VFS FS;
 
     public ModPathVisitor(ModResources resources, VFS fs)
@@ -264,7 +270,7 @@ public class GameDataContext
     public VFS FS;
     public ModResources Resources;
 
-    public GameDataContext(string path, TargetGame game = TargetGame.BG3, bool excludeAssets = true, bool loadUnpackedFiles = true)
+    public GameDataContext(string path, Game game = LSLib.LS.Enums.Game.BaldursGate3, bool excludeAssets = true, bool loadUnpackedFiles = true)
     {
         FS = new VFS();
         FS.AttachGameDirectory(path, excludeAssets, loadUnpackedFiles);

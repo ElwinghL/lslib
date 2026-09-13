@@ -13,6 +13,18 @@
     <ProjectReference Include="..\LSLib\LSLib.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <!--
+      BG3Tools fork scope reduction (fix/LSLibForkBuildLinux): CommandLineGR2Processor
+      wires up the convert-model/convert-models CLI actions (GR2 mesh/animation
+      conversion), which depend on LSLib's Granny/GR2 code — excluded from LSLib.csproj
+      because it needs the native, MSVC-only LSLibNative library. Those two actions were
+      also removed from CommandLineArguments/CommandLineActions (see those files), so
+      this file is now dead code; excluded here rather than deleted so a future
+      maintainer can restore GR2 support by reverting both without hunting for the file.
+    -->
+    <Compile Remove="CLI\CommandLineGR2Processor.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="CommandLineArgumentsParser" Version="3.0.23" />
     <PackageReference Include="System.Data.DataSetExtensions" Version="4.5.0" />
   </ItemGroup>
